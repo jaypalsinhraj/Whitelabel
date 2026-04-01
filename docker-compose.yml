@@ -1,0 +1,53 @@
+# Frontend image reads VITE_* from `frontend/.env` during build (copied into the context).
+# Optional: set build-args here or use `docker compose --env-file frontend/.env` if you prefer passing vars via compose.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: whitelabel
+    ports:
+      - "5432:5432"
+    volumes:
+      - whitelabel-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d whitelabel"]
+      interval: 3s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Host=postgres;Database=whitelabel;Username=postgres;Password=postgres"
+      Cors__Origins__0: "http://localhost:3000"
+      # Do not set AzureAd__* here with empty defaults — env vars override appsettings.json and
+      # would force all-zero GUIDs, causing JWT 401s. Configure Entra in appsettings.json (image)
+      # or set real AZURE_AD_* in a root .env and uncomment below.
+      # AzureAd__TenantId: "${AZURE_AD_TENANT_ID}"
+      # AzureAd__ClientId: "${AZURE_AD_API_CLIENT_ID}"
+      # AzureAd__Audience: "${AZURE_AD_AUDIENCE}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  whitelabel-pg-data:

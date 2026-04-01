@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+**/bin/
+**/obj/
+*.user
+*.suo
+.vs/
+
+# Build outputs
+dist/
+publish/
+*.dll
+*.pdb
+*.cache
+
+# Local DB artifacts (legacy SQLite / tools)
+*.db
+*.db-shm
+*.db-wal
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+appsettings.Development.local.json
+**/secrets.json
+
+# IDE
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test
+TestResults/
+coverage/
+
+# Azure / Bicep
+*.bicepparam.user
+infra/main.json

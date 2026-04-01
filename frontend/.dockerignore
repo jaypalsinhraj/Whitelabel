@@ -1,0 +1,8 @@
+node_modules
+dist
+.git
+# Ignore env overrides; keep `.env` so Docker build can read VITE_* for local compose.
+.env.*
+*.log
+Dockerfile
+.dockerignore

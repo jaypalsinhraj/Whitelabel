@@ -53,9 +53,34 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    env:
+      # Prefer Repository / Organization Variables (Settings → Secrets and variables → Actions → Variables).
+      # Fallback to Secrets for backward compatibility. OIDC credentials stay as Secrets only (see azure/login).
+      ACR_NAME: ${{ vars.ACR_NAME || secrets.ACR_NAME }}
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP || secrets.AZURE_RESOURCE_GROUP }}
+      VITE_MSAL_CLIENT_ID: ${{ vars.VITE_MSAL_CLIENT_ID || secrets.VITE_MSAL_CLIENT_ID }}
+      VITE_MSAL_AUTHORITY: ${{ vars.VITE_MSAL_AUTHORITY || secrets.VITE_MSAL_AUTHORITY }}
+      VITE_MSAL_REDIRECT_URI: ${{ vars.VITE_MSAL_REDIRECT_URI || secrets.VITE_MSAL_REDIRECT_URI }}
+      VITE_API_SCOPE: ${{ vars.VITE_API_SCOPE || secrets.VITE_API_SCOPE }}
+      VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || secrets.VITE_API_BASE_URL }}
+      AZURE_AD_TENANT_ID: ${{ vars.AZURE_AD_TENANT_ID || secrets.AZURE_AD_TENANT_ID }}
+      AZURE_AD_API_CLIENT_ID: ${{ vars.AZURE_AD_API_CLIENT_ID || secrets.AZURE_AD_API_CLIENT_ID }}
+      AZURE_AD_AUDIENCE: ${{ vars.AZURE_AD_AUDIENCE || secrets.AZURE_AD_AUDIENCE }}
+      AZURE_AD_DOMAIN: ${{ vars.AZURE_AD_DOMAIN || secrets.AZURE_AD_DOMAIN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Validate deploy configuration
+        run: |
+          ok=0
+          for name in ACR_NAME AZURE_RESOURCE_GROUP VITE_MSAL_CLIENT_ID VITE_MSAL_AUTHORITY VITE_MSAL_REDIRECT_URI VITE_API_SCOPE VITE_API_BASE_URL AZURE_AD_TENANT_ID AZURE_AD_API_CLIENT_ID AZURE_AD_AUDIENCE; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing $name — set Repository Variable or Secret (README-DEPLOYMENT.md § GitHub Actions variables)"
+              ok=1
+            fi
+          done
+          exit $ok
 
       - name: Azure login (OIDC)
         uses: azure/login@v2
@@ -70,7 +95,7 @@ jobs:
           azcliversion: azure-cli:latest
           inlineScript: |
             az group create \
-              --name "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+              --name "${{ env.AZURE_RESOURCE_GROUP }}" \
               --location "${{ env.AZURE_LOCATION }}" \
               --output none
 
@@ -82,7 +107,7 @@ jobs:
         with:
           azcliversion: azure-cli:latest
           inlineScript: |
-            az acr login --name "${{ secrets.ACR_NAME }}"
+            az acr login --name "${{ env.ACR_NAME }}"
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v6
@@ -90,14 +115,14 @@ jobs:
           context: ./frontend
           push: true
           tags: |
-            ${{ secrets.ACR_NAME }}.azurecr.io/whitelabel-frontend:${{ env.IMAGE_TAG }}
-            ${{ secrets.ACR_NAME }}.azurecr.io/whitelabel-frontend:latest
+            ${{ env.ACR_NAME }}.azurecr.io/whitelabel-frontend:${{ env.IMAGE_TAG }}
+            ${{ env.ACR_NAME }}.azurecr.io/whitelabel-frontend:latest
           build-args: |
-            VITE_MSAL_CLIENT_ID=${{ secrets.VITE_MSAL_CLIENT_ID }}
-            VITE_MSAL_AUTHORITY=${{ secrets.VITE_MSAL_AUTHORITY }}
-            VITE_MSAL_REDIRECT_URI=${{ secrets.VITE_MSAL_REDIRECT_URI }}
-            VITE_API_SCOPE=${{ secrets.VITE_API_SCOPE }}
-            VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
+            VITE_MSAL_CLIENT_ID=${{ env.VITE_MSAL_CLIENT_ID }}
+            VITE_MSAL_AUTHORITY=${{ env.VITE_MSAL_AUTHORITY }}
+            VITE_MSAL_REDIRECT_URI=${{ env.VITE_MSAL_REDIRECT_URI }}
+            VITE_API_SCOPE=${{ env.VITE_API_SCOPE }}
+            VITE_API_BASE_URL=${{ env.VITE_API_BASE_URL }}
 
       - name: Build and push backend image
         uses: docker/build-push-action@v6
@@ -105,8 +130,8 @@ jobs:
           context: ./backend
           push: true
           tags: |
-            ${{ secrets.ACR_NAME }}.azurecr.io/whitelabel-backend:${{ env.IMAGE_TAG }}
-            ${{ secrets.ACR_NAME }}.azurecr.io/whitelabel-backend:latest
+            ${{ env.ACR_NAME }}.azurecr.io/whitelabel-backend:${{ env.IMAGE_TAG }}
+            ${{ env.ACR_NAME }}.azurecr.io/whitelabel-backend:latest
 
       - name: Deploy infrastructure (Bicep)
         uses: azure/cli@v2
@@ -114,17 +139,17 @@ jobs:
           azcliversion: azure-cli:latest
           inlineScript: |
             az deployment group create \
-              --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+              --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
               --name "whitelabel-${{ github.run_id }}" \
               --template-file infra/main.bicep \
               --parameters @infra/params/dev.bicepparam \
-              --parameters acrName=${{ secrets.ACR_NAME }} \
+              --parameters acrName=${{ env.ACR_NAME }} \
               --parameters frontendImageTag=${{ env.IMAGE_TAG }} \
               --parameters backendImageTag=${{ env.IMAGE_TAG }} \
-              --parameters azureAdTenantId='${{ secrets.AZURE_AD_TENANT_ID }}' \
-              --parameters azureAdApiClientId='${{ secrets.AZURE_AD_API_CLIENT_ID }}' \
-              --parameters azureAdAudience='${{ secrets.AZURE_AD_AUDIENCE }}' \
-              --parameters azureAdDomain='${{ secrets.AZURE_AD_DOMAIN }}'
+              --parameters azureAdTenantId='${{ env.AZURE_AD_TENANT_ID }}' \
+              --parameters azureAdApiClientId='${{ env.AZURE_AD_API_CLIENT_ID }}' \
+              --parameters azureAdAudience='${{ env.AZURE_AD_AUDIENCE }}' \
+              --parameters azureAdDomain='${{ env.AZURE_AD_DOMAIN }}'
 
       - name: Deployment outputs
         uses: azure/cli@v2
@@ -132,7 +157,7 @@ jobs:
           azcliversion: azure-cli:latest
           inlineScript: |
             az deployment group show \
-              --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+              --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
               --name "whitelabel-${{ github.run_id }}" \
               --query properties.outputs \
               --output table

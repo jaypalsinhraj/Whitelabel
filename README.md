@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Manual steps** (Entra app registrations, databases, environment variables, production checklist) are in **[README-MANUAL.md](README-MANUAL.md)**.
+**Manual steps** (Entra app registrations, databases, environment variables, production checklist) are in **[README-MANUAL.md](README-MANUAL.md)**. **Manual deployment** (Docker Compose, Azure images, Bicep, CI secrets, PostgreSQL wiring) is in **[README-DEPLOYMENT.md](README-DEPLOYMENT.md)**.
 
 This repository is a **production-style starter** for a **single-deployment, multi-tenant, white-label** SaaS product on **Microsoft Azure**. It includes:
 
@@ -58,7 +58,8 @@ This repository is a **production-style starter** for a **single-deployment, mul
 ```text
 Whitelabel/
 ├── README.md
-├── README-MANUAL.md   # Entra, DB, env vars, operations
+├── README-MANUAL.md     # Entra, DB, env vars, operations
+├── README-DEPLOYMENT.md # Manual deploy: Compose, Azure, CI, Postgres
 ├── .gitignore
 ├── docker-compose.yml
 ├── frontend/
@@ -331,26 +332,33 @@ Workflow: `.github/workflows/ci-cd.yml`.
 - **CI (all PRs / pushes):** `npm ci` + `npm run build` (with dummy MSAL env), `dotnet build`.
 - **CD (pushes to `main` only):** Azure OIDC login → ACR login → build/push `whitelabel-frontend` and `whitelabel-backend` → `az deployment group create` with `infra/main.bicep` and `infra/params/dev.bicepparam` (with overrides).
 
-### Required GitHub secrets (typical)
+### GitHub configuration (secrets vs variables)
+
+**Keep as Repository secrets** (sensitive — OIDC to Azure):
 
 | Secret | Purpose |
 |--------|---------|
-| `AZURE_CLIENT_ID` | Azure AD app (service principal / workload identity) used with OIDC |
+| `AZURE_CLIENT_ID` | Entra app (workload identity) used with OIDC `azure/login` |
 | `AZURE_TENANT_ID` | Azure AD tenant |
 | `AZURE_SUBSCRIPTION_ID` | Target subscription |
-| `AZURE_RESOURCE_GROUP` | Resource group name for deployment |
-| `ACR_NAME` | Short ACR name (no FQDN) |
-| `VITE_MSAL_CLIENT_ID` | SPA client ID for production image |
-| `VITE_MSAL_AUTHORITY` | Authority URL for production |
-| `VITE_MSAL_REDIRECT_URI` | Production SPA URL (e.g. `https://<frontend-fqdn>`) |
+
+**Use Repository variables** (recommended — not secret; visible to repo admins): **Settings → Secrets and variables → Actions → Variables** — same names as below. The workflow reads **`vars.<NAME>`** first, then falls back to **`secrets.<NAME>`** if you still store values as secrets.
+
+| Variable (or secret) | Purpose |
+|---------------------|---------|
+| `ACR_NAME` | Short ACR name (no `.azurecr.io`) |
+| `AZURE_RESOURCE_GROUP` | Resource group for deployment |
+| `VITE_MSAL_CLIENT_ID` | SPA client ID (public in the browser anyway) |
+| `VITE_MSAL_AUTHORITY` | Authority URL |
+| `VITE_MSAL_REDIRECT_URI` | Production SPA URL (`https://…`) |
 | `VITE_API_SCOPE` | API scope string |
-| `VITE_API_BASE_URL` | Public backend URL (e.g. `https://<backend-fqdn>`) |
-| `AZURE_AD_TENANT_ID` | Platform tenant ID for API |
+| `VITE_API_BASE_URL` | Public backend URL (`https://…`) |
+| `AZURE_AD_TENANT_ID` | Platform tenant ID for API container |
 | `AZURE_AD_API_CLIENT_ID` | API app registration client ID |
 | `AZURE_AD_AUDIENCE` | Expected token audience |
-| `AZURE_AD_DOMAIN` | Optional `AzureAd:Domain` |
+| `AZURE_AD_DOMAIN` | Optional — `AzureAd:Domain` |
 
-Configure **federated credentials** on the Entra app so `azure/login` can authenticate via OIDC (see below).
+Configure **federated credentials** on the Entra app so `azure/login` can authenticate via OIDC (see below). More detail: **[README-DEPLOYMENT.md](README-DEPLOYMENT.md#5-github-actions-manual-secret-setup)**.
 
 ---
 

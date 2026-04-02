@@ -13,7 +13,46 @@ param maxReplicas int
 param envVars array = []
 param tags object
 
+@description('When set, adds ConnectionStrings__DefaultConnection via Container Apps secret (Npgsql).')
+param includePostgresConnection bool = false
+@secure()
+param postgresConnectionString string = ''
+
 var registrySecretName = 'acr-password'
+var postgresSecretName = 'postgres-connection-string'
+
+var registrySecrets = [
+  {
+    name: registrySecretName
+    value: acrPassword
+  }
+]
+
+var postgresSecrets = includePostgresConnection
+  ? [
+      {
+        name: postgresSecretName
+        value: postgresConnectionString
+      }
+    ]
+  : []
+
+var allSecrets = concat(registrySecrets, postgresSecrets)
+
+var postgresEnv = includePostgresConnection
+  ? [
+      {
+        name: 'ConnectionStrings__DefaultConnection'
+        secretRef: postgresSecretName
+      }
+      {
+        name: 'Database__Provider'
+        value: 'PostgreSQL'
+      }
+    ]
+  : []
+
+var allEnv = concat(envVars, postgresEnv)
 
 resource app 'Microsoft.App/containerApps@2024-03-01' = {
   name: appName
@@ -33,12 +72,7 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
           passwordSecretRef: registrySecretName
         }
       ]
-      secrets: [
-        {
-          name: registrySecretName
-          value: acrPassword
-        }
-      ]
+      secrets: allSecrets
     }
     template: {
       scale: {
@@ -49,7 +83,7 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
         {
           name: 'main'
           image: image
-          env: envVars
+          env: allEnv
           resources: {
             cpu: json('0.5')
             memory: '1Gi'

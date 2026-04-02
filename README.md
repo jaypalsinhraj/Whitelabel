@@ -182,7 +182,7 @@ Example fragment:
 
 ### Persistence and roles
 
-- **Database:** Tenant data, grants, and admin assignments are stored with **EF Core** and **PostgreSQL** (Npgsql). Migrations run **on startup**. An **initial seed** runs when the database is empty, using `Tenants:Items` and `Admin:ApplicationAdminObjectIds` in configuration. See **[README-MANUAL.md](README-MANUAL.md)** for connection strings and operations.
+- **Database:** Tenant data, grants, and admin assignments are stored with **EF Core** and **PostgreSQL** (Npgsql). Migrations run **on startup**. An **initial seed** runs when the database is empty, using `Tenants:Items` and `Admin:ApplicationAdminObjectIds` in configuration. **Azure:** Bicep deploys **Azure Database for PostgreSQL (Flexible Server)** and passes the connection string to the API Container App. See **[README-MANUAL.md](README-MANUAL.md)** for connection strings and operations.
 - **Platform admins:** Recognized via `Admin:ApplicationAdminObjectIds` **and** rows in the **`ApplicationAdmins`** table (config OIDs are merged on startup). Prefer **Key Vault** or **Container App** secrets for production, not committed `appsettings`.
 - **Further hardening:** For larger deployments, consider **Entra app roles** or **groups** in the token instead of OID lists. **`TenantResolution:AllowTenantIdHeader`** is **`false`** in `appsettings.Production.json` so clients cannot pick a tenant via `X-Tenant-Id` unless you override.
 
@@ -332,13 +332,14 @@ Workflow: `.github/workflows/ci-cd.yml`.
 
 ### GitHub configuration (secrets vs variables)
 
-**Keep as Repository secrets** (sensitive — OIDC to Azure):
+**Keep as Repository secrets** (sensitive — OIDC to Azure and database admin):
 
 | Secret | Purpose |
 |--------|---------|
 | `AZURE_CLIENT_ID` | Entra app (workload identity) used with OIDC `azure/login` |
 | `AZURE_TENANT_ID` | Azure AD tenant |
 | `AZURE_SUBSCRIPTION_ID` | Target subscription |
+| `POSTGRES_ADMIN_PASSWORD` | Password for the **Azure PostgreSQL Flexible Server** admin account created by Bicep (embedded in the API connection string). |
 
 **Use Repository variables** (recommended — not secret; visible to repo admins): **Settings → Secrets and variables → Actions → Variables** — same names as below. The workflow reads **`vars.<NAME>`** first, then falls back to **`secrets.<NAME>`** if you still store values as secrets.
 
@@ -452,7 +453,7 @@ Add secrets listed in [CI/CD](#cicd-pipeline-github-actions); align `VITE_*` URL
 - [ ] GitHub **OIDC** federated credential and **secrets** configured; workflow runs on `main`.
 - [ ] B2B guest invited and end-to-end login verified.
 - [ ] **Admin RBAC:** Set **`Admin:ApplicationAdminObjectIds`** and per-tenant **`TenantAdminObjectIds`** to real Entra user **`oid`** values (see [Roles and access control](#roles-and-access-control-platform-admin-tenant-admin-tenant-user)).
-- [ ] **Database:** PostgreSQL reachable (`ConnectionStrings:DefaultConnection`); for Azure, **Azure Database for PostgreSQL** firewall / managed identity configured as needed (see [README-MANUAL.md](README-MANUAL.md)).
+- [ ] **Database (Azure):** **`POSTGRES_ADMIN_PASSWORD`** secret set for CI/CD; Bicep provisions **Azure Database for PostgreSQL (Flexible Server)** and wires the backend Container App. Local/docker: see [README-MANUAL.md](README-MANUAL.md).
 
 ---
 

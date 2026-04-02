@@ -8,3 +8,5 @@ param frontendImageTag = 'latest'
 param backendImageTag = 'latest'
 param minReplicas = 2
 param maxReplicas = 10
+
+param postgresAdminPassword = readEnvironmentVariable('POSTGRES_ADMIN_PASSWORD')

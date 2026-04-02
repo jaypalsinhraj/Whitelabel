@@ -13,7 +13,7 @@ This document lists **manual steps to deploy** the Whitelabel stack: containers,
 |-------|--------|
 | **Frontend** | Static SPA (nginx) built with **Vite**; production URLs and MSAL settings are **baked in at image build time** (`VITE_*`). |
 | **Backend** | ASP.NET Core API; needs **PostgreSQL** (Npgsql) and **Entra** JWT settings at runtime. |
-| **Database** | **PostgreSQL** — not created by the included Bicep; you must provision it and point the API at it (see below). |
+| **Database** | **Azure Database for PostgreSQL (Flexible Server)** — created by **`infra/main.bicep`** (database `whitelabel`). The backend Container App receives **`ConnectionStrings__DefaultConnection`** as a **secret** from Bicep. You supply a strong **`postgresAdminPassword`** at deploy time (GitHub secret or env var for CLI). |
 
 ---
 
@@ -22,7 +22,7 @@ This document lists **manual steps to deploy** the Whitelabel stack: containers,
 Complete or plan the following:
 
 1. **Microsoft Entra ID** — API and SPA app registrations, API scope, redirect URIs for production URLs. See **[README-MANUAL.md §1](README-MANUAL.md)**.
-2. **PostgreSQL** — A server and database the API can reach (Azure Database for PostgreSQL, RDS, managed instance, or a VM). Note **host**, **database name**, **user**, **password** (or managed identity / AAD auth if you configure it in the app).
+2. **PostgreSQL (Azure)** — For **Bicep / GitHub Actions**, choose a strong **`POSTGRES_ADMIN_PASSWORD`** (stored as a GitHub **secret** or in `POSTGRES_ADMIN_PASSWORD` env when using `az` with `.bicepparam`). For **Docker Compose** only, Postgres runs in Compose and does not use this.
 3. **Secrets** — Do not commit production connection strings or Entra secrets to git. Use **Azure Key Vault references**, **Container Apps secrets**, or **GitHub Actions secrets** as appropriate.
 
 ---
@@ -80,16 +80,13 @@ The repo includes **Bicep** (`infra/main.bicep`) and **GitHub Actions** (`.githu
    docker push <acr>.azurecr.io/whitelabel-backend:<tag>
    ```
 
-### 4.2 Provision PostgreSQL (manual)
+### 4.2 PostgreSQL in Azure (Bicep)
 
-The Bicep template **does not** create PostgreSQL. In Azure Portal or CLI:
+`infra/modules/postgresFlexible.bicep` deploys a **Flexible Server** (Burstable **Standard_B1ms**, PostgreSQL **16**, 32 GiB storage), database **`whitelabel`**, and a firewall rule so **Azure services** (including Container Apps) can connect. The API app gets **`ConnectionStrings__DefaultConnection`** and **`Database__Provider=PostgreSQL`** via Container Apps **secrets**.
 
-1. Create **Azure Database for PostgreSQL** (Flexible Server recommended).
-2. Create database (e.g. `whitelabel`), user/password or Entra ID auth per your policy.
-3. Allow network access from **Azure** (or your Container Apps subnet / VNet integration) per your security model.
-4. Build the **Npgsql** connection string, e.g.:
+You must pass **`postgresAdminPassword`** (secure) on every deployment. **GitHub Actions** uses the **`POSTGRES_ADMIN_PASSWORD`** repository secret. For **CLI** with `dev.bicepparam`, set `export POSTGRES_ADMIN_PASSWORD='...'` before deploy (see `readEnvironmentVariable` in that file).
 
-   `Host=<server>.postgres.database.azure.com;Database=whitelabel;Username=...;Password=...;Ssl Mode=Require;Trust Server Certificate=true`
+For production, consider **VNet integration**, **private access**, larger SKUs, and longer backups — adjust `postgresFlexible.bicep` as needed.
 
 ### 4.3 Deploy infrastructure (Bicep)
 
@@ -122,24 +119,16 @@ The Bicep template **does not** create PostgreSQL. In Azure Portal or CLI:
      --parameters azureAdTenantId='<guid>' \
      --parameters azureAdApiClientId='<api-client-id>' \
      --parameters azureAdAudience='api://<api-client-id>' \
-     --parameters azureAdDomain='<optional-domain>'
+     --parameters azureAdDomain='<optional-domain>' \
+     --parameters postgresAdminLogin=whitelabel \
+     --parameters postgresAdminPassword='<strong-password>'
    ```
 
-3. Note outputs **`frontendFqdn`** and **`backendFqdn`**.
+3. Note outputs **`frontendFqdn`**, **`backendFqdn`**, and **`postgresFqdn`**.
 
-### 4.4 Configure the backend Container App (required manual step)
+### 4.4 Optional backend tweaks
 
-The Bicep module sets **Entra** and **CORS** for the backend, but **not** the database connection string. You must add it:
-
-1. Azure Portal → **Container Apps** → your API app → **Containers** → **Environment variables** (or **Secrets** + reference).
-2. Set:
-
-   - `ConnectionStrings__DefaultConnection` = your PostgreSQL connection string (store as a **secret** in production).
-   - Optionally `ASPNETCORE_ENVIRONMENT` = `Production` (often already set by Bicep).
-
-3. Ensure **CORS** `Cors__Origins__0` matches the **HTTPS** frontend URL after you know the real FQDN (Bicep sets it from deployment; if the frontend FQDN was empty at deploy time, fix CORS manually).
-
-4. **Revision** must restart so the API runs migrations against PostgreSQL.
+Bicep already sets **Entra**, **CORS**, **PostgreSQL connection string** (secret), and **`ASPNETCORE_ENVIRONMENT=Production`**. If you change URLs or use an **external** database later, update the Container App’s env/secrets in the portal or extend Bicep.
 
 ---
 
@@ -156,6 +145,7 @@ Only these need to stay under **Settings → Secrets and variables → Actions �
 | `AZURE_CLIENT_ID` | Entra app for GitHub Actions OIDC |
 | `AZURE_TENANT_ID` | Azure AD tenant |
 | `AZURE_SUBSCRIPTION_ID` | Subscription to deploy into |
+| `POSTGRES_ADMIN_PASSWORD` | Strong password for the **Azure PostgreSQL flexible server** admin user (also used in the API connection string). |
 
 ### 5.2 Variables (recommended — no secrets clutter)
 
@@ -182,7 +172,7 @@ SPAs expose the client ID and authority in the bundle; API URLs are not secret c
 ### 5.3 Other steps
 
 1. **Azure OIDC federated credential** — Register an Entra app for GitHub Actions, add a federated credential for `repo:<org>/<repo>:ref:refs/heads/main`, and grant subscription/RG permissions. See Azure docs: *OpenID Connect with GitHub Actions*.
-2. **Database** — The workflow does **not** inject `ConnectionStrings__DefaultConnection`. After the first deploy, set the PostgreSQL connection string on the backend Container App **manually** (or extend Bicep / workflow).
+2. **Database** — Bicep creates PostgreSQL and injects **`ConnectionStrings__DefaultConnection`** into the backend Container App; the workflow must supply **`POSTGRES_ADMIN_PASSWORD`** (secret above).
 
 See **[README.md § CI/CD](README.md#cicd-pipeline-github-actions)** for the summary table.
 

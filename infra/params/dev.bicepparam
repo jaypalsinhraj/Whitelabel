@@ -8,3 +8,6 @@ param frontendImageTag = 'latest'
 param backendImageTag = 'latest'
 param minReplicas = 1
 param maxReplicas = 3
+
+@description('Set POSTGRES_ADMIN_PASSWORD in the environment before deploying (never commit the value).')
+param postgresAdminPassword = readEnvironmentVariable('POSTGRES_ADMIN_PASSWORD')

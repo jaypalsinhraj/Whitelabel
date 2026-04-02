@@ -67,6 +67,7 @@ jobs:
       AZURE_AD_API_CLIENT_ID: ${{ vars.AZURE_AD_API_CLIENT_ID || secrets.AZURE_AD_API_CLIENT_ID }}
       AZURE_AD_AUDIENCE: ${{ vars.AZURE_AD_AUDIENCE || secrets.AZURE_AD_AUDIENCE }}
       AZURE_AD_DOMAIN: ${{ vars.AZURE_AD_DOMAIN || secrets.AZURE_AD_DOMAIN }}
+      POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -80,6 +81,10 @@ jobs:
               ok=1
             fi
           done
+          if [ -z "$POSTGRES_ADMIN_PASSWORD" ]; then
+            echo "::error::Missing POSTGRES_ADMIN_PASSWORD — add a Repository secret (strong password for Azure PostgreSQL flexible server admin)"
+            ok=1
+          fi
           exit $ok
 
       - name: Azure login (OIDC)
@@ -166,7 +171,9 @@ jobs:
             --parameters azureAdTenantId='${{ env.AZURE_AD_TENANT_ID }}' \
             --parameters azureAdApiClientId='${{ env.AZURE_AD_API_CLIENT_ID }}' \
             --parameters azureAdAudience='${{ env.AZURE_AD_AUDIENCE }}' \
-            --parameters azureAdDomain='${{ env.AZURE_AD_DOMAIN }}'
+            --parameters azureAdDomain='${{ env.AZURE_AD_DOMAIN }}' \
+            --parameters postgresAdminLogin=whitelabel \
+            --parameters postgresAdminPassword="$POSTGRES_ADMIN_PASSWORD"
 
       - name: Deployment outputs
         run: |

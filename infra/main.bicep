@@ -33,6 +33,13 @@ param azureAdApiClientId string = ''
 param azureAdAudience string = ''
 param azureAdDomain string = ''
 
+@description('PostgreSQL flexible server admin login (no @ or spaces).')
+param postgresAdminLogin string = 'whitelabel'
+
+@description('PostgreSQL flexible server admin password (required for API database).')
+@secure()
+param postgresAdminPassword string
+
 var tags = {
   environment: environment
   application: 'whitelabel-saas'
@@ -70,6 +77,23 @@ module cae 'modules/containerAppsEnv.bicep' = {
 
 var acrLoginServer = acr.outputs.loginServer
 
+var postgresServerName = take(
+  toLower(replace('psql-${environment}-${uniqueString(resourceGroup().id)}', '_', '-')),
+  50
+)
+
+module postgres 'modules/postgresFlexible.bicep' = {
+  name: 'postgres'
+  params: {
+    location: location
+    serverName: postgresServerName
+    administratorLogin: postgresAdminLogin
+    administratorLoginPassword: postgresAdminPassword
+    databaseName: 'whitelabel'
+    tags: tags
+  }
+}
+
 module fe 'modules/containerApp.bicep' = {
   name: 'frontendApp'
   params: {
@@ -103,6 +127,8 @@ module api 'modules/containerApp.bicep' = {
     ingressExternal: true
     minReplicas: minReplicas
     maxReplicas: maxReplicas
+    includePostgresConnection: true
+    postgresConnectionString: postgres.outputs.connectionString
     envVars: concat(
       [
         {
@@ -158,3 +184,6 @@ output acrLoginServerOut string = acrLoginServer
 
 @description('Log Analytics workspace resource id.')
 output logAnalyticsWorkspaceId string = logs.outputs.workspaceId
+
+@description('PostgreSQL flexible server FQDN.')
+output postgresFqdn string = postgres.outputs.fullyQualifiedDomainName

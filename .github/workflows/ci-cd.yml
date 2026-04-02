@@ -149,14 +149,20 @@ jobs:
 
       - name: Deploy infrastructure (Bicep)
         run: |
+          # Do not mix --parameters @*.bicepparam with extra --parameters; Azure CLI mis-parses it.
+          # Values mirror infra/params/dev.bicepparam; image tags and Entra IDs come from the workflow env.
           az deployment group create \
             --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
             --name "whitelabel-${{ github.run_id }}" \
             --template-file infra/main.bicep \
-            --parameters @infra/params/dev.bicepparam \
-            --parameters acrName=${{ env.ACR_NAME }} \
-            --parameters frontendImageTag=${{ env.IMAGE_TAG }} \
-            --parameters backendImageTag=${{ env.IMAGE_TAG }} \
+            --parameters environment=dev \
+            --parameters containerAppsEnvName=cae-whitelabel-dev \
+            --parameters logRetentionDays=30 \
+            --parameters minReplicas=1 \
+            --parameters maxReplicas=3 \
+            --parameters acrName="${{ env.ACR_NAME }}" \
+            --parameters frontendImageTag="${{ env.IMAGE_TAG }}" \
+            --parameters backendImageTag="${{ env.IMAGE_TAG }}" \
             --parameters azureAdTenantId='${{ env.AZURE_AD_TENANT_ID }}' \
             --parameters azureAdApiClientId='${{ env.AZURE_AD_API_CLIENT_ID }}' \
             --parameters azureAdAudience='${{ env.AZURE_AD_AUDIENCE }}' \

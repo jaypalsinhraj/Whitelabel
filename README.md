@@ -310,13 +310,11 @@ Pass Entra-related environment variables for the API (see `docker-compose.yml`).
 
 ```bash
 az group create -n rg-whitelabel-dev -l uksouth
+# Edit infra/params/dev.bicepparam (acrName, tags, Entra IDs), then deploy with the file only — do not add extra --parameters.
 az deployment group create \
   --resource-group rg-whitelabel-dev \
   --template-file infra/main.bicep \
-  --parameters @infra/params/dev.bicepparam \
-  --parameters acrName=<unique-acr-name> \
-  --parameters frontendImageTag=latest \
-  --parameters backendImageTag=latest
+  --parameters @infra/params/dev.bicepparam
 ```
 
 **Outputs:** `frontendFqdn`, `backendFqdn`, `acrLoginServerOut`, `logAnalyticsWorkspaceId`.
@@ -330,7 +328,7 @@ az deployment group create \
 Workflow: `.github/workflows/ci-cd.yml`.
 
 - **CI (all PRs / pushes):** `npm ci` + `npm run build` (with dummy MSAL env), `dotnet build`.
-- **CD (pushes to `main` only):** Azure OIDC login → ACR login → build/push `whitelabel-frontend` and `whitelabel-backend` → `az deployment group create` with `infra/main.bicep` and `infra/params/dev.bicepparam` (with overrides).
+- **CD (pushes to `main` only):** Azure OIDC login → ensure ACR → build/push images → `az deployment group create` with `infra/main.bicep` and **inline `--parameters`** (same values as `infra/params/dev.bicepparam`; do not mix `@*.bicepparam` with extra `--parameters` in Azure CLI).
 
 ### GitHub configuration (secrets vs variables)
 

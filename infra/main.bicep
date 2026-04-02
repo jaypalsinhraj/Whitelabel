@@ -111,7 +111,7 @@ module api 'modules/containerApp.bicep' = {
         }
         {
           name: 'AzureAd__Instance'
-          value: 'https://login.microsoftonline.com/'
+          value: az.environment().authentication.loginEndpoint
         }
         {
           name: 'Cors__Origins__0'

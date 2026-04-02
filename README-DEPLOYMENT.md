@@ -94,13 +94,28 @@ The Bicep template **does not** create PostgreSQL. In Azure Portal or CLI:
 ### 4.3 Deploy infrastructure (Bicep)
 
 1. Copy and edit **`infra/params/dev.bicepparam`** (or create `prod.bicepparam`) — unique **`acrName`**, environment names, etc.
-2. Deploy:
+2. Deploy using **either** a single `.bicepparam` file **or** inline `--parameters` for every required parameter — **do not** combine `--parameters @file.bicepparam` with extra `--parameters` flags; Azure CLI can mis-parse that and fail.
+
+   **Option A — param file only** (put all values, including `acrName` and Entra IDs, in the file first):
 
    ```bash
    az deployment group create \
      --resource-group <your-rg> \
      --template-file infra/main.bicep \
-     --parameters @infra/params/dev.bicepparam \
+     --parameters @infra/params/dev.bicepparam
+   ```
+
+   **Option B — inline only** (matches the GitHub Actions deploy job):
+
+   ```bash
+   az deployment group create \
+     --resource-group <your-rg> \
+     --template-file infra/main.bicep \
+     --parameters environment=dev \
+     --parameters containerAppsEnvName=cae-whitelabel-dev \
+     --parameters logRetentionDays=30 \
+     --parameters minReplicas=1 \
+     --parameters maxReplicas=3 \
      --parameters acrName=<unique-acr> \
      --parameters frontendImageTag=<tag> \
      --parameters backendImageTag=<tag> \

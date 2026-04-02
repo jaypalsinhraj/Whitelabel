@@ -2,7 +2,7 @@
 
 This guide covers **one-time manual steps** and **operational tasks** for the Whitelabel starter: Microsoft Entra ID (Azure AD), databases, environment variables, containers, and production hardening. The main **[README.md](README.md)** describes architecture and local development flows.
 
-----
+-----
 
 ## 1. Microsoft Entra ID (app registrations)
 

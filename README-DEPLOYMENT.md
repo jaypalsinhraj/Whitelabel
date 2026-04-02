@@ -82,7 +82,11 @@ The repo includes **Bicep** (`infra/main.bicep`) and **GitHub Actions** (`.githu
 
 ### 4.2 PostgreSQL in Azure (Bicep)
 
-`infra/modules/postgresFlexible.bicep` deploys a **Flexible Server** (Burstable **Standard_B1ms**, PostgreSQL **16**, 32 GiB storage), database **`whitelabel`**, and a firewall rule so **Azure services** (including Container Apps) can connect. The API app gets **`ConnectionStrings__DefaultConnection`** and **`Database__Provider=PostgreSQL`** via Container Apps **secrets**.
+`infra/modules/postgresFlexible.bicep` deploys a **Flexible Server** (ARM API **2024-08-01**, Burstable **Standard_B1ms**, PostgreSQL **16**, 32 GiB storage), database **`whitelabel`**, and a firewall rule so **Azure services** (including Container Apps) can connect. The API app gets **`ConnectionStrings__DefaultConnection`** and **`Database__Provider=PostgreSQL`** via Container Apps **secrets**.
+
+Register the resource provider once per subscription (the GitHub workflow runs this automatically):
+
+`az provider register --namespace Microsoft.DBforPostgreSQL --wait`
 
 You must pass **`postgresAdminPassword`** (secure) on every deployment. **GitHub Actions** uses the **`POSTGRES_ADMIN_PASSWORD`** repository secret. For **CLI** with `dev.bicepparam`, set `export POSTGRES_ADMIN_PASSWORD='...'` before deploy (see `readEnvironmentVariable` in that file).
 

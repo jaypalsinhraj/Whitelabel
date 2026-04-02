@@ -1,5 +1,5 @@
 param location string
-@description('Server name: 3–63 chars, lowercase letters, digits, hyphens; globally unique.')
+@description('Server name: 3–63 chars; pattern ^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)* ; globally unique.')
 param serverName string
 param administratorLogin string
 @secure()
@@ -7,8 +7,9 @@ param administratorLoginPassword string
 param databaseName string = 'whitelabel'
 param tags object
 
-// https://learn.microsoft.com/azure/postgresql/flexible-server/quickstart-create-server
-resource server 'Microsoft.DBforPostgreSQL/flexibleServers@2023-12-01' = {
+// API 2024-08-01 — stable; includes authConfig required for new servers.
+// https://learn.microsoft.com/azure/templates/microsoft.dbforpostgresql/2024-08-01/flexibleservers
+resource server 'Microsoft.DBforPostgreSQL/flexibleServers@2024-08-01' = {
   name: serverName
   location: location
   sku: {
@@ -19,6 +20,10 @@ resource server 'Microsoft.DBforPostgreSQL/flexibleServers@2023-12-01' = {
     version: '16'
     administratorLogin: administratorLogin
     administratorLoginPassword: administratorLoginPassword
+    authConfig: {
+      activeDirectoryAuth: 'Disabled'
+      passwordAuth: 'Enabled'
+    }
     storage: {
       storageSizeGB: 32
     }
@@ -36,7 +41,7 @@ resource server 'Microsoft.DBforPostgreSQL/flexibleServers@2023-12-01' = {
   tags: tags
 }
 
-resource db 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2023-12-01' = {
+resource db 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2024-08-01' = {
   parent: server
   name: databaseName
   properties: {
@@ -45,8 +50,8 @@ resource db 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2023-12-01' = {
   }
 }
 
-// Allow Azure services (incl. Container Apps) to reach the server — tighten for production (VNet/private).
-resource firewallAzure 'Microsoft.DBforPostgreSQL/flexibleServers/firewallRules@2023-12-01' = {
+// Allow Azure services (incl. Container Apps) — tighten for production (private VNet).
+resource firewallAzure 'Microsoft.DBforPostgreSQL/flexibleServers/firewallRules@2024-08-01' = {
   parent: server
   name: 'AllowAllAzureServicesAndResourcesWithinAzureIps'
   properties: {

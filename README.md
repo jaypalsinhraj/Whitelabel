@@ -341,6 +341,8 @@ Workflow: `.github/workflows/ci-cd.yml`.
 | `AZURE_SUBSCRIPTION_ID` | Target subscription |
 | `POSTGRES_ADMIN_PASSWORD` | Password for the **Azure PostgreSQL Flexible Server** admin account created by Bicep (embedded in the API connection string). |
 
+**Before the first deploy:** register **Microsoft.DBforPostgreSQL** on the subscription once (Owner/Contributor — `az provider register` or Portal). The GitHub OIDC identity usually cannot run provider registration. See [README-DEPLOYMENT.md](README-DEPLOYMENT.md#42-postgresql-in-azure-bicep).
+
 **Use Repository variables** (recommended — not secret; visible to repo admins): **Settings → Secrets and variables → Actions → Variables** — same names as below. The workflow reads **`vars.<NAME>`** first, then falls back to **`secrets.<NAME>`** if you still store values as secrets.
 
 | Variable (or secret) | Purpose |

@@ -309,7 +309,7 @@ Pass Entra-related environment variables for the API (see `docker-compose.yml`).
 **Deploy example:**
 
 ```bash
-az group create -n rg-whitelabel-dev -l eastus
+az group create -n rg-whitelabel-dev -l uksouth
 az deployment group create \
   --resource-group rg-whitelabel-dev \
   --template-file infra/main.bicep \

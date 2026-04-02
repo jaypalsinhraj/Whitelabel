@@ -139,6 +139,32 @@ export interface CreateTenantPayload {
   tenantAdminObjectIds: string[];
 }
 
+/** Full tenant row returned for platform admins (list + update). */
+export interface TenantAdminDetail {
+  tenantId: string;
+  tenantName: string;
+  primaryColor: string;
+  secondaryColor: string;
+  logoUrl: string;
+  domain: string;
+  entraTenantId: string;
+  hostNames: string[];
+  emailDomains: string[];
+  tenantAdminObjectIds: string[];
+}
+
+export interface UpdateTenantFullPayload {
+  tenantName: string;
+  primaryColor: string;
+  secondaryColor: string;
+  logoUrl: string;
+  domain: string;
+  entraTenantId: string;
+  hostNames: string[];
+  emailDomains: string[];
+  tenantAdminObjectIds: string[];
+}
+
 export interface UpdateBrandingPayload {
   tenantName?: string;
   primaryColor?: string;
@@ -161,6 +187,29 @@ export async function createTenant(account: AccountInfo | null, payload: CreateT
     throw new Error(await res.text() || `API error: ${res.status}`);
   }
   return res.json();
+}
+
+export async function listTenants(account: AccountInfo | null): Promise<TenantAdminDetail[]> {
+  const res = await authorizedFetch(account, "/admin/tenants");
+  if (!res.ok) {
+    throw new Error(await res.text() || `API error: ${res.status}`);
+  }
+  return res.json() as Promise<TenantAdminDetail[]>;
+}
+
+export async function updateTenantFull(
+  account: AccountInfo | null,
+  tenantId: string,
+  payload: UpdateTenantFullPayload,
+): Promise<TenantAdminDetail> {
+  const res = await authorizedFetch(account, `/admin/tenants/${encodeURIComponent(tenantId)}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    throw new Error(await res.text() || `API error: ${res.status}`);
+  }
+  return res.json() as Promise<TenantAdminDetail>;
 }
 
 export async function updateTenantBranding(

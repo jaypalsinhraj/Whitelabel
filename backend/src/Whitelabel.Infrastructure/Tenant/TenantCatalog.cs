@@ -24,6 +24,17 @@ public sealed class TenantCatalog(
         return list.Select(ToConfiguration).ToList();
     }
 
+    public async Task<IReadOnlyList<TenantAdminDetail>> AllTenantDetailsAsync(CancellationToken cancellationToken = default)
+    {
+        var list = await _db.Tenants.AsNoTracking()
+            .Include(t => t.HostNames)
+            .Include(t => t.EmailDomains)
+            .Include(t => t.TenantAdmins)
+            .OrderBy(t => t.TenantId)
+            .ToListAsync(cancellationToken);
+        return list.Select(ToAdminDetail).ToList();
+    }
+
     public async Task<TenantConfiguration?> FindByIdAsync(string? tenantId, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(tenantId))
@@ -183,6 +194,50 @@ public sealed class TenantCatalog(
         return ToConfiguration(entity);
     }
 
+    public async Task<TenantAdminDetail> UpdateTenantFullAsync(string tenantId, UpdateTenantFullRequest req, CancellationToken cancellationToken = default)
+    {
+        await _db.TenantHostNames.Where(h => h.TenantId == tenantId).ExecuteDeleteAsync(cancellationToken);
+        await _db.TenantEmailDomains.Where(d => d.TenantId == tenantId).ExecuteDeleteAsync(cancellationToken);
+        await _db.TenantAdmins.Where(a => a.TenantId == tenantId).ExecuteDeleteAsync(cancellationToken);
+
+        var entity = await _db.Tenants.FirstOrDefaultAsync(t => t.TenantId == tenantId, cancellationToken);
+        if (entity is null)
+        {
+            throw new KeyNotFoundException("Tenant not found.");
+        }
+
+        entity.TenantName = req.TenantName;
+        entity.PrimaryColor = req.PrimaryColor;
+        entity.SecondaryColor = req.SecondaryColor;
+        entity.LogoUrl = req.LogoUrl;
+        entity.Domain = req.Domain;
+        entity.EntraTenantId = req.EntraTenantId;
+
+        foreach (var h in req.HostNames)
+        {
+            _db.TenantHostNames.Add(new TenantHostNameEntity { TenantId = tenantId, HostName = h });
+        }
+
+        foreach (var d in req.EmailDomains)
+        {
+            _db.TenantEmailDomains.Add(new TenantEmailDomainEntity { TenantId = tenantId, Domain = d });
+        }
+
+        foreach (var oid in req.TenantAdminObjectIds)
+        {
+            _db.TenantAdmins.Add(new TenantAdminEntity { TenantId = tenantId, ObjectId = oid });
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var reloaded = await _db.Tenants.AsNoTracking()
+            .Include(t => t.HostNames)
+            .Include(t => t.EmailDomains)
+            .Include(t => t.TenantAdmins)
+            .FirstAsync(t => t.TenantId == tenantId, cancellationToken);
+        return ToAdminDetail(reloaded);
+    }
+
     public async Task GrantTenantUserAccessAsync(string tenantId, string userObjectId, CancellationToken cancellationToken = default)
     {
         var exists = await _db.Tenants.AnyAsync(t => t.TenantId == tenantId, cancellationToken);
@@ -265,7 +320,42 @@ public sealed class TenantCatalog(
         Domain = e.Domain,
         EntraTenantId = e.EntraTenantId,
     };
+
+    private static TenantAdminDetail ToAdminDetail(TenantEntity e) => new(
+        e.TenantId,
+        e.TenantName,
+        e.PrimaryColor,
+        e.SecondaryColor,
+        e.LogoUrl,
+        e.Domain,
+        e.EntraTenantId,
+        e.HostNames.Select(h => h.HostName).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList(),
+        e.EmailDomains.Select(d => d.Domain).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList(),
+        e.TenantAdmins.Select(a => a.ObjectId).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList());
 }
+
+public sealed record TenantAdminDetail(
+    string TenantId,
+    string TenantName,
+    string PrimaryColor,
+    string SecondaryColor,
+    string LogoUrl,
+    string Domain,
+    string EntraTenantId,
+    IReadOnlyList<string> HostNames,
+    IReadOnlyList<string> EmailDomains,
+    IReadOnlyList<string> TenantAdminObjectIds);
+
+public sealed record UpdateTenantFullRequest(
+    string TenantName,
+    string PrimaryColor,
+    string SecondaryColor,
+    string LogoUrl,
+    string Domain,
+    string EntraTenantId,
+    List<string> HostNames,
+    List<string> EmailDomains,
+    List<string> TenantAdminObjectIds);
 
 public sealed record CreateTenantRequest(
     string TenantId,

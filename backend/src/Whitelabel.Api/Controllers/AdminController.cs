@@ -19,7 +19,56 @@ public sealed class AdminController : ControllerBase
             return Forbid();
         }
 
-        return Ok(await catalog.AllTenantConfigsAsync(cancellationToken));
+        return Ok(await catalog.AllTenantDetailsAsync(cancellationToken));
+    }
+
+    [HttpPut("tenants/{tenantId}")]
+    public async Task<IActionResult> UpdateTenant(string tenantId, [FromBody] UpdateTenantDto req, [FromServices] TenantCatalog catalog, CancellationToken cancellationToken)
+    {
+        var oid = UserObjectId();
+        if (!await catalog.IsApplicationAdminAsync(oid, cancellationToken))
+        {
+            return Forbid();
+        }
+
+        if (string.IsNullOrWhiteSpace(tenantId))
+        {
+            return BadRequest(new { message = "tenantId is required." });
+        }
+
+        var name = req.TenantName?.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest(new { message = "tenantName is required." });
+        }
+
+        static List<string> NormList(List<string>? items, bool lowerForDomain = false) =>
+            (items ?? [])
+                .Select(s => s.Trim())
+                .Where(s => s.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Select(s => lowerForDomain ? s.ToLowerInvariant() : s)
+                .ToList();
+
+        try
+        {
+            var updated = await catalog.UpdateTenantFullAsync(tenantId.Trim(), new UpdateTenantFullRequest(
+                name,
+                req.PrimaryColor?.Trim() ?? "#1a56db",
+                req.SecondaryColor?.Trim() ?? "#0f3b99",
+                req.LogoUrl?.Trim() ?? "",
+                req.Domain?.Trim() ?? "",
+                req.EntraTenantId?.Trim() ?? "",
+                NormList(req.HostNames?.ToList()),
+                NormList(req.EmailDomains?.ToList(), lowerForDomain: true),
+                NormList(req.TenantAdminObjectIds?.ToList())), cancellationToken);
+
+            return Ok(updated);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "Tenant not found." });
+        }
     }
 
     [HttpPost("tenants")]
@@ -127,5 +176,16 @@ public sealed record UpdateBrandingDto(
     string? LogoUrl,
     string? Domain,
     string? EntraTenantId);
+
+public sealed record UpdateTenantDto(
+    string? TenantName,
+    string? PrimaryColor,
+    string? SecondaryColor,
+    string? LogoUrl,
+    string? Domain,
+    string? EntraTenantId,
+    List<string>? HostNames,
+    List<string>? EmailDomains,
+    List<string>? TenantAdminObjectIds);
 
 public sealed record GrantUserAccessDto(string UserObjectId);

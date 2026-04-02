@@ -92,7 +92,6 @@ jobs:
       - name: Ensure resource group
         uses: azure/cli@v2
         with:
-          azcliversion: azure-cli:latest
           inlineScript: |
             az group create \
               --name "${{ env.AZURE_RESOURCE_GROUP }}" \
@@ -105,7 +104,6 @@ jobs:
       - name: Log in to Azure Container Registry
         uses: azure/cli@v2
         with:
-          azcliversion: azure-cli:latest
           inlineScript: |
             az acr login --name "${{ env.ACR_NAME }}"
 
@@ -136,7 +134,6 @@ jobs:
       - name: Deploy infrastructure (Bicep)
         uses: azure/cli@v2
         with:
-          azcliversion: azure-cli:latest
           inlineScript: |
             az deployment group create \
               --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
@@ -154,7 +151,6 @@ jobs:
       - name: Deployment outputs
         uses: azure/cli@v2
         with:
-          azcliversion: azure-cli:latest
           inlineScript: |
             az deployment group show \
               --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \

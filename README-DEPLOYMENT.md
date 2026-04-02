@@ -150,7 +150,7 @@ Under **Settings → Secrets and variables → Actions → Variables**, create:
 
 | Variable | Purpose |
 |----------|---------|
-| `ACR_NAME` | Short ACR name (no `.azurecr.io`) |
+| `ACR_NAME` | Registry name only: **lowercase letters and digits**, 5–50 chars, **globally unique** in Azure (e.g. `acrwhitelabeldev001`). The workflow lowercases the value, **creates the ACR** in your RG if it does not exist, then pushes images **before** Bicep deploy. Must match the subscription used by `AZURE_SUBSCRIPTION_ID`. |
 | `AZURE_RESOURCE_GROUP` | Resource group name |
 | `VITE_MSAL_CLIENT_ID` | SPA client ID (public in the browser) |
 | `VITE_MSAL_AUTHORITY` | Authority URL |

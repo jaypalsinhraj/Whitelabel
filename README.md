@@ -346,7 +346,7 @@ Workflow: `.github/workflows/ci-cd.yml`.
 
 | Variable (or secret) | Purpose |
 |---------------------|---------|
-| `ACR_NAME` | Short ACR name (no `.azurecr.io`) |
+| `ACR_NAME` | ACR name: **lowercase** alphanumeric, globally unique (see [README-DEPLOYMENT.md](README-DEPLOYMENT.md)) |
 | `AZURE_RESOURCE_GROUP` | Resource group for deployment |
 | `VITE_MSAL_CLIENT_ID` | SPA client ID (public in the browser anyway) |
 | `VITE_MSAL_AUTHORITY` | Authority URL |
